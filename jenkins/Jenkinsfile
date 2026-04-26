@@ -1,0 +1,63 @@
+pipeline {
+  agent any
+
+  options { timestamps() }
+
+  parameters {
+    choice(name: 'ACTION', choices: ['deploy','test'], description: 'Run tests or deploy')
+  }
+
+  environment {
+    APP_NAME = 'eventhub'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Run Tests') {
+      steps {
+        sh '''
+        set -eux
+        docker compose build
+        docker compose up -d postgres redis rabbitmq
+        '''
+      }
+    }
+
+    stage('Service Tests') {
+      when { expression { params.ACTION == 'test' || params.ACTION == 'deploy' } }
+      steps {
+        sh '''
+        set -eux
+        docker compose run --rm auth-service pytest -q
+        docker compose run --rm event-service pytest -q
+        docker compose run --rm booking-service pytest -q
+        '''
+      }
+    }
+
+    stage('Build Images') {
+      when { expression { params.ACTION == 'deploy' } }
+      steps {
+        sh 'echo "Build/push pipeline scaffold for EventHub"'
+      }
+    }
+
+    stage('Deploy') {
+      when { expression { params.ACTION == 'deploy' } }
+      steps {
+        sh 'echo "Helm/ArgoCD deployment scaffold for EventHub"'
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker compose down -v || true'
+    }
+  }
+}

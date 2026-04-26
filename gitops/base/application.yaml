@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eventhub
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/eventhub-gitops.git
+    targetRevision: main
+    path: overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: eventhub
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

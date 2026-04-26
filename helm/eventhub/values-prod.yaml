@@ -1,0 +1,5 @@
+namespace: eventhub-prod
+imageRegistry: your-prod-ecr
+frontend:
+  image: frontend
+  tag: prod

@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: eventhub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      containers:
+      - name: analytics-service
+        image: your-ecr/analytics-service:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: POSTGRES_DB
+          value: eventhub
+        - name: POSTGRES_USER
+          value: eventhub
+        - name: POSTGRES_PASSWORD
+          value: eventhub123
+        - name: POSTGRES_HOST
+          value: postgres
+        - name: REDIS_HOST
+          value: redis
+        - name: RABBITMQ_HOST
+          value: rabbitmq
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: eventhub
+spec:
+  selector:
+    app: analytics-service
+  ports:
+  - port: 8000
+    targetPort: 8000

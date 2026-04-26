@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-canary
+  namespace: eventhub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-canary
+  template:
+    metadata:
+      labels:
+        app: frontend-canary
+        track: canary
+    spec:
+      containers:
+      - name: frontend
+        image: your-ecr/frontend:canary
+        ports:
+        - containerPort: 3000

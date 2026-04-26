@@ -1,0 +1,14 @@
+namespace: eventhub
+imageRegistry: your-ecr
+frontend:
+  image: frontend
+  tag: latest
+authService:
+  image: auth-service
+  tag: latest
+eventService:
+  image: event-service
+  tag: latest
+bookingService:
+  image: booking-service
+  tag: latest

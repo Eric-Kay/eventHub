@@ -1,0 +1,5 @@
+namespace: eventhub-dev
+imageRegistry: your-dev-ecr
+frontend:
+  image: frontend
+  tag: dev

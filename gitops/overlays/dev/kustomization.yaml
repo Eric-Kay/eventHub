@@ -1,0 +1,8 @@
+resources:
+  - ../../../k8s/namespace.yaml
+  - ../../../k8s/postgres/deployment.yaml
+  - ../../../k8s/postgres/service.yaml
+  - ../../../k8s/postgres/pvc.yaml
+  - ../../../k8s/redis/deployment.yaml
+  - ../../../k8s/rabbitmq/deployment.yaml
+  - ../../../k8s/frontend/deployment.yaml
