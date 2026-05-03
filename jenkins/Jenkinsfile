@@ -45,10 +45,21 @@ EOF
       }
     }
 
+    stage('Clean Existing Local Stack') {
+      steps {
+        sh '''
+          set -eux
+          docker compose down -v --remove-orphans || true
+          docker rm -f eventhub-postgres-1 eventhub-redis-1 eventhub-rabbitmq-1 || true
+        '''
+      }
+    }
+
     stage('Build Local Stack') {
       steps {
         sh '''
           set -eux
+          docker compose down -v --remove-orphans || true
           docker compose build
           docker compose up -d postgres redis rabbitmq
           sleep 15
@@ -189,7 +200,10 @@ EOF
 
   post {
     always {
-      sh 'docker compose down -v || true'
+      sh '''
+        docker compose down -v --remove-orphans || true
+        docker rm -f eventhub-postgres-1 eventhub-redis-1 eventhub-rabbitmq-1 || true
+      '''
     }
   }
 }
