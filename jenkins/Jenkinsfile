@@ -143,11 +143,14 @@ EOF
             -v "$PWD:/src" \
             -v "$PWD/trivy-report:/report" \
             aquasec/trivy:latest fs \
+            --scanners vuln,secret \
             --severity HIGH,CRITICAL \
             --format table \
             --output /report/trivy-fs-report.txt \
             --exit-code 1 \
             /src
+
+          ls -la trivy-report
         '''
       }
       post {
