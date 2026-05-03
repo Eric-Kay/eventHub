@@ -15,7 +15,7 @@ pipeline {
     AWS_ACCOUNT_ID = '603108265570'
     ECR_REGISTRY = '603108265570.dkr.ecr.us-east-1.amazonaws.com'
     ECR_NAMESPACE = 'dev'
-    IMAGE_TAG = "${BUILD_NUMBER}"
+    COMPOSE = 'docker compose -f docker-compose.yaml -f docker-compose.ci.yaml'
   }
 
   stages {
@@ -45,12 +45,27 @@ EOF
       }
     }
 
+    stage('Create CI Compose Override') {
+      steps {
+        sh '''
+          cat > docker-compose.ci.yaml <<'EOF'
+services:
+  postgres:
+    ports: []
+  redis:
+    ports: []
+  rabbitmq:
+    ports: []
+EOF
+        '''
+      }
+    }
+
     stage('Clean Existing Local Stack') {
       steps {
         sh '''
           set -eux
-          docker compose down -v --remove-orphans || true
-          docker rm -f eventhub-postgres-1 eventhub-redis-1 eventhub-rabbitmq-1 || true
+          ${COMPOSE} down -v --remove-orphans || true
         '''
       }
     }
@@ -59,9 +74,8 @@ EOF
       steps {
         sh '''
           set -eux
-          docker compose down -v --remove-orphans || true
-          docker compose build
-          docker compose up -d postgres redis rabbitmq
+          ${COMPOSE} build
+          ${COMPOSE} up -d postgres redis rabbitmq
           sleep 15
         '''
       }
@@ -71,10 +85,9 @@ EOF
       steps {
         sh '''
           set -eux
-
-          docker compose run --rm auth-service pytest -q tests
-          docker compose run --rm event-service pytest -q tests
-          docker compose run --rm booking-service pytest -q tests
+          ${COMPOSE} run --rm auth-service pytest -q tests
+          ${COMPOSE} run --rm event-service pytest -q tests
+          ${COMPOSE} run --rm booking-service pytest -q tests
         '''
       }
     }
@@ -83,7 +96,6 @@ EOF
       steps {
         sh '''
           set -eux
-
           rm -rf dependency-check-report
           mkdir -p dependency-check-report
 
@@ -110,7 +122,6 @@ EOF
       steps {
         sh '''
           set -eux
-
           rm -rf trivy-report
           mkdir -p trivy-report
 
@@ -171,7 +182,6 @@ EOF
       steps {
         sh '''
           set -eux
-
           kubectl annotate application eventhub-dev -n argocd \
             argocd.argoproj.io/refresh=hard --overwrite
 
@@ -189,7 +199,6 @@ EOF
       steps {
         sh '''
           set -eux
-
           kubectl get applications -n argocd
           kubectl get pods -n eventhub
           kubectl get ingress -n eventhub
@@ -201,8 +210,7 @@ EOF
   post {
     always {
       sh '''
-        docker compose down -v --remove-orphans || true
-        docker rm -f eventhub-postgres-1 eventhub-redis-1 eventhub-rabbitmq-1 || true
+        ${COMPOSE} down -v --remove-orphans || true
       '''
     }
   }
