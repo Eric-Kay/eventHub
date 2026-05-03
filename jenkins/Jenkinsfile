@@ -8,6 +8,7 @@ pipeline {
 
   parameters {
     choice(name: 'ACTION', choices: ['test', 'deploy'], description: 'Run tests or deploy')
+    booleanParam(name: 'RUN_OWASP', defaultValue: false, description: 'Run OWASP Dependency Check')
   }
 
   environment {
@@ -93,8 +94,11 @@ EOF
     }
 
     stage('OWASP Dependency Check') {
+      when {
+        expression { params.RUN_OWASP == true }
+      }
       options {
-        timeout(time: 40, unit: 'MINUTES')
+        timeout(time: 45, unit: 'MINUTES')
       }
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
