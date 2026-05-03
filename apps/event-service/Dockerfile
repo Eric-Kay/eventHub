@@ -4,4 +4,5 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY wait-for-postgres.py /app/wait-for-postgres.py
 COPY app ./app
+COPY tests ./tests
 CMD ["sh", "-c", "python /app/wait-for-postgres.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
