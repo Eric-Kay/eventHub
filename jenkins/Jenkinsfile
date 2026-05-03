@@ -17,6 +17,7 @@ pipeline {
     ECR_REGISTRY = '603108265570.dkr.ecr.us-east-1.amazonaws.com'
     ECR_NAMESPACE = 'dev'
     COMPOSE = 'docker compose -f docker-compose.yaml -f docker-compose.ci.yaml'
+    KUBECONFIG = '/var/jenkins_home/.kube/config'
   }
 
   stages {
@@ -207,15 +208,22 @@ EOF
         expression { params.ACTION == 'deploy' }
       }
       steps {
-        sh '''
-          set -eux
-          kubectl annotate application eventhub-dev -n argocd \
-            argocd.argoproj.io/refresh=hard --overwrite
+        withCredentials([
+          string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          sh '''
+            set -eux
+            aws sts get-caller-identity
 
-          kubectl patch application eventhub-dev -n argocd \
-            --type merge \
-            -p '{"operation":{"sync":{"revision":"HEAD","prune":true}}}' || true
-        '''
+            kubectl annotate application eventhub-dev -n argocd \
+              argocd.argoproj.io/refresh=hard --overwrite
+
+            kubectl patch application eventhub-dev -n argocd \
+              --type merge \
+              -p '{"operation":{"sync":{"revision":"HEAD","prune":true}}}' || true
+          '''
+        }
       }
     }
 
@@ -224,12 +232,17 @@ EOF
         expression { params.ACTION == 'deploy' }
       }
       steps {
-        sh '''
-          set -eux
-          kubectl get applications -n argocd
-          kubectl get pods -n eventhub
-          kubectl get ingress -n eventhub
-        '''
+        withCredentials([
+          string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          sh '''
+            set -eux
+            kubectl get applications -n argocd
+            kubectl get pods -n eventhub
+            kubectl get ingress -n eventhub
+          '''
+        }
       }
     }
   }
