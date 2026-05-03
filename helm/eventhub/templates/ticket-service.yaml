@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: ticket-service
-        image: your-ecr/ticket-service:latest
+        image: 603108265570.dkr.ecr.us-east-1.amazonaws.com/dev/ticket-service:latest
         ports:
         - containerPort: 8000
         env:
