@@ -51,11 +51,11 @@ EOF
           cat > docker-compose.ci.yaml <<'EOF'
 services:
   postgres:
-    ports: []
+    ports: !reset []
   redis:
-    ports: []
+    ports: !reset []
   rabbitmq:
-    ports: []
+    ports: !reset []
 EOF
         '''
       }
