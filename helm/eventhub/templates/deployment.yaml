@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: eventhub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16
+        ports:
+        - containerPort: 5432
+
+        env:
+        - name: POSTGRES_DB
+          value: "eventhub"
+        - name: POSTGRES_USER
+          value: "eventhub"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: eventhub-app-secrets
+              key: POSTGRES_PASSWORD
+
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+
+        # ✅ Health checks (important)
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "eventhub"]
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+        livenessProbe:
+          exec:
+            command: ["pg_isready", "-U", "eventhub"]
+          initialDelaySeconds: 20
+          periodSeconds: 10
+
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: postgres-pvc

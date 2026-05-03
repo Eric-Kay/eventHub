@@ -5,22 +5,14 @@ metadata:
   namespace: argocd
 spec:
   project: default
-
   source:
-    repoURL: https://github.com/Eric-Kay/eventHub.git
-    targetRevision: HEAD
-    path: helm/eventhub
-    helm:
-      valueFiles:
-        - values-dev.yaml
-
+    repoURL: https://github.com/your-org/eventhub-gitops.git
+    targetRevision: main
+    path: gitops/overlays/dev
   destination:
     server: https://kubernetes.default.svc
     namespace: eventhub
-
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true

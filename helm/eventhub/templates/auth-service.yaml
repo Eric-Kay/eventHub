@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: eventhub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: 603108265570.dkr.ecr.us-east-1.amazonaws.com/dev/auth-service:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: POSTGRES_DB
+          value: "eventhub"
+        - name: POSTGRES_USER
+          value: "eventhub"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: eventhub-app-secrets
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_HOST
+          value: "postgres"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: RABBITMQ_HOST
+          value: "rabbitmq"
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: eventhub-app-secrets
+              key: JWT_SECRET
+        - name: REFRESH_TOKEN_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: eventhub-app-secrets
+              key: REFRESH_TOKEN_SECRET
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: eventhub
+spec:
+  selector:
+    app: auth-service
+  ports:
+  - port: 8000
+    targetPort: 8000

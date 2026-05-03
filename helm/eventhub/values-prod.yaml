@@ -1,5 +1,14 @@
 namespace: eventhub-prod
-imageRegistry: your-prod-ecr
-frontend:
-  image: frontend
-  tag: prod
+
+imageRegistry: 603108265570.dkr.ecr.us-east-1.amazonaws.com/dev
+
+global:
+  env:
+    POSTGRES_DB: eventhub
+    POSTGRES_USER: eventhub
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_PORT: "5672"
