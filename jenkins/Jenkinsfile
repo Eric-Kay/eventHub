@@ -1,14 +1,21 @@
 pipeline {
   agent any
 
-  options { timestamps() }
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
 
   parameters {
-    choice(name: 'ACTION', choices: ['test','deploy'], description: 'Run tests or deploy')
+    choice(name: 'ACTION', choices: ['test', 'deploy'], description: 'Run tests or deploy')
   }
 
   environment {
-    APP_NAME = 'eventhub'
+    AWS_REGION = 'us-east-1'
+    AWS_ACCOUNT_ID = '603108265570'
+    ECR_REGISTRY = '603108265570.dkr.ecr.us-east-1.amazonaws.com'
+    ECR_NAMESPACE = 'dev'
+    IMAGE_TAG = "${BUILD_NUMBER}"
   }
 
   stages {
@@ -21,9 +28,9 @@ pipeline {
     stage('Build Local Stack') {
       steps {
         sh '''
-        set -eux
-        docker compose build
-        docker compose up -d postgres redis rabbitmq
+          set -eux
+          docker compose build
+          docker compose up -d postgres redis rabbitmq
         '''
       }
     }
@@ -31,25 +38,76 @@ pipeline {
     stage('Service Tests') {
       steps {
         sh '''
-        set -eux
-        docker compose run --rm auth-service pytest -q || true
-        docker compose run --rm event-service pytest -q || true
-        docker compose run --rm booking-service pytest -q || true
+          set -eux
+          docker compose run --rm auth-service pytest -q
+          docker compose run --rm event-service pytest -q
+          docker compose run --rm booking-service pytest -q
         '''
       }
     }
 
-    stage('Build Images') {
-      when { expression { params.ACTION == 'deploy' } }
+    stage('Login to ECR') {
+      when {
+        expression { params.ACTION == 'deploy' }
+      }
       steps {
-        sh 'echo "Build/push pipeline scaffold for EventHub"'
+        sh '''
+          set -eux
+          aws ecr get-login-password --region ${AWS_REGION} | \
+            docker login --username AWS --password-stdin ${ECR_REGISTRY}
+        '''
       }
     }
 
-    stage('Deploy') {
-      when { expression { params.ACTION == 'deploy' } }
+    stage('Build and Push Images') {
+      when {
+        expression { params.ACTION == 'deploy' }
+      }
       steps {
-        sh 'echo "Helm/ArgoCD deployment scaffold for EventHub"'
+        sh '''
+          set -eux
+
+          for service in analytics-service auth-service booking-service event-service notification-service payment-service ticket-service; do
+            docker build -t ${ECR_REGISTRY}/${ECR_NAMESPACE}/${service}:latest apps/${service}
+            docker push ${ECR_REGISTRY}/${ECR_NAMESPACE}/${service}:latest
+          done
+
+          docker build -t ${ECR_REGISTRY}/${ECR_NAMESPACE}/frontend:latest apps/frontend
+          docker push ${ECR_REGISTRY}/${ECR_NAMESPACE}/frontend:latest
+        '''
+      }
+    }
+
+    stage('Trigger ArgoCD Sync') {
+      when {
+        expression { params.ACTION == 'deploy' }
+      }
+      steps {
+        sh '''
+          set -eux
+
+          kubectl annotate application eventhub-dev -n argocd \
+            argocd.argoproj.io/refresh=hard --overwrite
+
+          kubectl patch application eventhub-dev -n argocd \
+            --type merge \
+            -p '{"operation":{"sync":{"revision":"HEAD","prune":true}}}' || true
+        '''
+      }
+    }
+
+    stage('Verify Deployment') {
+      when {
+        expression { params.ACTION == 'deploy' }
+      }
+      steps {
+        sh '''
+          set -eux
+
+          kubectl get applications -n argocd
+          kubectl get pods -n eventhub
+          kubectl get ingress -n eventhub
+        '''
       }
     }
   }
