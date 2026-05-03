@@ -93,6 +93,9 @@ EOF
     }
 
     stage('OWASP Dependency Check') {
+      options {
+        timeout(time: 20, unit: 'MINUTES')
+      }
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
           sh '''
@@ -113,6 +116,7 @@ EOF
               --format "JSON" \
               --out /report \
               --nvdApiKey $NVD_API_KEY \
+              --nvdApiDelay 3500 \
               --failOnCVSS 7
           '''
         }
