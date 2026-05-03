@@ -150,6 +150,11 @@ EOF
             --exit-code 1 \
             /src
 
+          mkdir -p trivy-report
+
+          test -f trivy-report/trivy-fs-report.txt || \
+          echo "No Trivy issues found or no supported vuln files detected." > trivy-report/trivy-fs-report.txt
+
           ls -la trivy-report
         '''
       }
