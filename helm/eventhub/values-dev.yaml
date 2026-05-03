@@ -22,3 +22,5 @@ ingress-nginx:
       enabled: true
       default: true
     ingressClass: nginx
+    admissionWebhooks:
+      enabled: false
