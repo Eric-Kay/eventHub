@@ -1,2 +1,3 @@
-def test_event_service_smoke():
-    assert True
+def test_import_app_package():
+    import app
+    assert app is not None
