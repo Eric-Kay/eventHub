@@ -15,23 +15,31 @@ spec:
     spec:
       containers:
       - name: notification-service
-        image: your-ecr/notification-service:latest
+        image: 603108265570.dkr.ecr.us-east-1.amazonaws.com/dev/notification-service:latest
         ports:
         - containerPort: 8000
         env:
         - name: POSTGRES_DB
-          value: eventhub
+          value: "eventhub"
         - name: POSTGRES_USER
-          value: eventhub
+          value: "eventhub"
         - name: POSTGRES_PASSWORD
-          value: eventhub123
+          valueFrom:
+            secretKeyRef:
+              name: eventhub-app-secrets
+              key: POSTGRES_PASSWORD
         - name: POSTGRES_HOST
-          value: postgres
+          value: "postgres"
+        - name: POSTGRES_PORT
+          value: "5432"
         - name: REDIS_HOST
-          value: redis
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
         - name: RABBITMQ_HOST
-          value: rabbitmq
-
+          value: "rabbitmq"
+        - name: RABBITMQ_PORT
+          value: "5672"
 ---
 apiVersion: v1
 kind: Service

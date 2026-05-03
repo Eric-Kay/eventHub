@@ -1,0 +1,15 @@
+{
+    "addon": {
+        "addonName": "aws-ebs-csi-driver",
+        "clusterName": "eventhub-dev",
+        "status": "DELETING",
+        "addonVersion": "v1.59.0-eksbuild.1",
+        "health": {
+            "issues": []
+        },
+        "addonArn": "arn:aws:eks:us-east-1:603108265570:addon/eventhub-dev/aws-ebs-csi-driver/1ccee7b5-75d0-c47e-8499-33481255c47d",
+        "createdAt": "2026-04-27T15:49:44.299000+01:00",
+        "modifiedAt": "2026-04-27T16:29:51.215000+01:00",
+        "tags": {}
+    }
+}
