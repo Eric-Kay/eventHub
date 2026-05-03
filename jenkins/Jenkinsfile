@@ -25,6 +25,26 @@ pipeline {
       }
     }
 
+    stage('Create CI Env File') {
+      steps {
+        sh '''
+          cat > .env <<'EOF'
+POSTGRES_DB=eventhub
+POSTGRES_USER=eventhub
+POSTGRES_PASSWORD=eventhubpass
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+REDIS_HOST=redis
+REDIS_PORT=6379
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+EOF
+        '''
+      }
+    }
+
     stage('Build Local Stack') {
       steps {
         sh '''
