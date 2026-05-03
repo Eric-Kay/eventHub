@@ -94,7 +94,7 @@ EOF
 
     stage('OWASP Dependency Check') {
       options {
-        timeout(time: 20, unit: 'MINUTES')
+        timeout(time: 40, unit: 'MINUTES')
       }
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
