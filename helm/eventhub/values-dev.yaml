@@ -26,6 +26,12 @@ ingress-nginx:
       enabled: false
 
 kube-prometheus-stack:
+  prometheusOperator:
+    admissionWebhooks:
+      enabled: false
+      patch:
+        enabled: false
+
   grafana:
     enabled: true
     adminUser: admin
@@ -40,31 +46,4 @@ kube-prometheus-stack:
       podMonitorSelectorNilUsesHelmValues: false
 
   alertmanager:
-    enabled: true
-kube-prometheus-stack:
-  prometheusOperator:
-    admissionWebhooks:
-      enabled: false
-      patch:kube-prometheus-stack:
-  prometheusOperator:
-    admissionWebhooks:
-      enabled: false
-      patch:
-        enabled: false
-
-  grafana:
-    enabled: true
-    adminUser: admin
-    adminPassword: admin123
-
-  prometheus:
-    enabled: true
-        enabled: false
-
-  grafana:
-    enabled: true
-    adminUser: admin
-    adminPassword: admin123
-
-  prometheus:
     enabled: true
