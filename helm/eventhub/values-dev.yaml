@@ -26,11 +26,16 @@ ingress-nginx:
       enabled: false
 
 kube-prometheus-stack:
+  crds:
+    enabled: false
+
   prometheusOperator:
     admissionWebhooks:
       enabled: false
       patch:
         enabled: false
+    tls:
+      enabled: false
 
   grafana:
     enabled: true
