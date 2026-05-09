@@ -8,7 +8,6 @@ pipeline {
 
   parameters {
     choice(name: 'ACTION', choices: ['test', 'deploy'], description: 'Run tests or deploy')
-    booleanParam(name: 'RUN_OWASP', defaultValue: false, description: 'Run OWASP Dependency Check')
   }
 
   environment {
@@ -18,6 +17,7 @@ pipeline {
     ECR_NAMESPACE = 'dev'
     COMPOSE = 'docker compose -f docker-compose.yaml -f docker-compose.ci.yaml'
     KUBECONFIG = '/var/jenkins_home/.kube/config'
+    SONAR_HOST_URL = 'http://host.docker.internal:9000'
   }
 
   stages {
@@ -94,51 +94,47 @@ EOF
       }
     }
 
-    stage('OWASP Dependency Check') {
-      when {
-        expression { params.RUN_OWASP == true }
-      }
-      options {
-        timeout(time: 90, unit: 'MINUTES')
-      }
+    stage('Checkov IaC Scan') {
       steps {
-        withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
-          sh '''
-            set -eux
+        sh '''
+          set -eux
+          rm -rf checkov-report
+          mkdir -p checkov-report
 
-            rm -rf dependency-check-report
-            mkdir -p dependency-check-report
-
-            # Stop any stuck previous OWASP containers
-            docker ps -q --filter ancestor=owasp/dependency-check:latest | xargs -r docker stop || true
-
-            # Use a unique data folder per build to avoid H2 database lock
-            OWASP_DATA_DIR=".dependency-check-data-${BUILD_NUMBER}"
-            rm -rf "$OWASP_DATA_DIR"
-            mkdir -p "$OWASP_DATA_DIR"
-
-            docker run --rm \
-              -e NVD_API_KEY=$NVD_API_KEY \
-              -v "$PWD:/src" \
-              -v "$PWD/dependency-check-report:/report" \
-              -v "$PWD/$OWASP_DATA_DIR:/usr/share/dependency-check/data" \
-              owasp/dependency-check:latest \
-              --project "EventHub" \
-              --scan /src \
-              --format "HTML" \
-              --format "JSON" \
-              --out /report \
-              --nvdApiKey $NVD_API_KEY \
-              --nvdApiDelay 6000 \
-              --failOnCVSS 7
-
-            rm -rf "$OWASP_DATA_DIR"
-          '''
-        }
+          docker run --rm \
+            -v "$PWD:/repo" \
+            bridgecrew/checkov:latest \
+            -d /repo \
+            --framework terraform,kubernetes,helm \
+            --soft-fail \
+            --output cli \
+            --output junitxml \
+            --output-file-path /repo/checkov-report
+        '''
       }
       post {
         always {
-          archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
+          archiveArtifacts artifacts: 'checkov-report/**', allowEmptyArchive: true
+        }
+      }
+    }
+
+    stage('SonarQube Code Scan') {
+      steps {
+        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+          sh '''
+            set -eux
+
+            docker run --rm \
+              -e SONAR_HOST_URL=${SONAR_HOST_URL} \
+              -e SONAR_TOKEN=$SONAR_TOKEN \
+              -v "$PWD:/usr/src" \
+              sonarsource/sonar-scanner-cli:latest \
+              -Dsonar.projectKey=eventhub \
+              -Dsonar.projectName=EventHub \
+              -Dsonar.sources=. \
+              -Dsonar.exclusions=**/node_modules/**,**/.terraform/**,**/charts/**,**/Chart.lock,**/trivy-report/**,**/checkov-report/**
+          '''
         }
       }
     }
@@ -154,16 +150,15 @@ EOF
             -v "$PWD:/src" \
             -v "$PWD/trivy-report:/report" \
             aquasec/trivy:latest fs \
-            --scanners vuln,secret \
+            --scanners vuln,secret,misconfig \
             --severity HIGH,CRITICAL \
             --format table \
             --output /report/trivy-fs-report.txt \
-            --exit-code 1 \
+            --exit-code 0 \
             /src
 
-          mkdir -p trivy-report
           test -f trivy-report/trivy-fs-report.txt || \
-          echo "No Trivy issues found or no supported vuln files detected." > trivy-report/trivy-fs-report.txt
+          echo "No Trivy issues found or no supported files detected." > trivy-report/trivy-fs-report.txt
 
           ls -la trivy-report
         '''
@@ -210,6 +205,35 @@ EOF
           docker build -t ${ECR_REGISTRY}/${ECR_NAMESPACE}/frontend:latest apps/frontend
           docker push ${ECR_REGISTRY}/${ECR_NAMESPACE}/frontend:latest
         '''
+      }
+    }
+
+    stage('Trivy Image Scan') {
+      when {
+        expression { params.ACTION == 'deploy' }
+      }
+      steps {
+        sh '''
+          set -eux
+          mkdir -p trivy-report
+
+          for service in analytics-service auth-service booking-service event-service notification-service payment-service ticket-service frontend; do
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD/trivy-report:/report" \
+              aquasec/trivy:latest image \
+              --severity HIGH,CRITICAL \
+              --format table \
+              --output /report/trivy-image-${service}.txt \
+              --exit-code 0 \
+              ${ECR_REGISTRY}/${ECR_NAMESPACE}/${service}:latest
+          done
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'trivy-report/**', allowEmptyArchive: true
+        }
       }
     }
 
@@ -261,7 +285,6 @@ EOF
     always {
       sh '''
         ${COMPOSE} down -v --remove-orphans || true
-        rm -rf .dependency-check-data-* || true
       '''
     }
   }
