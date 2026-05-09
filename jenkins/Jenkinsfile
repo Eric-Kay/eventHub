@@ -94,48 +94,54 @@ EOF
       }
     }
 
-stage('OWASP Dependency Check') {
-  when {
-    expression { params.RUN_OWASP == true }
-  }
-  options {
-    timeout(time: 60, unit: 'MINUTES')
-  }
-  steps {
-    withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
-      sh '''
-        set -eux
+    stage('OWASP Dependency Check') {
+      when {
+        expression { params.RUN_OWASP == true }
+      }
+      options {
+        timeout(time: 90, unit: 'MINUTES')
+      }
+      steps {
+        withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
+          sh '''
+            set -eux
 
-        rm -rf dependency-check-report
-        mkdir -p dependency-check-report
+            rm -rf dependency-check-report
+            mkdir -p dependency-check-report
 
-        # Clear broken/locked OWASP DB cache
-        rm -rf .dependency-check-data
-        mkdir -p .dependency-check-data
+            # Stop any stuck previous OWASP containers
+            docker ps -q --filter ancestor=owasp/dependency-check:latest | xargs -r docker stop || true
 
-        docker run --rm \
-          -e NVD_API_KEY=$NVD_API_KEY \
-          -v "$PWD:/src" \
-          -v "$PWD/dependency-check-report:/report" \
-          -v "$PWD/.dependency-check-data:/usr/share/dependency-check/data" \
-          owasp/dependency-check:latest \
-          --project "EventHub" \
-          --scan /src \
-          --format "HTML" \
-          --format "JSON" \
-          --out /report \
-          --nvdApiKey $NVD_API_KEY \
-          --nvdApiDelay 3500 \
-          --failOnCVSS 7
-      '''
+            # Use a unique data folder per build to avoid H2 database lock
+            OWASP_DATA_DIR=".dependency-check-data-${BUILD_NUMBER}"
+            rm -rf "$OWASP_DATA_DIR"
+            mkdir -p "$OWASP_DATA_DIR"
+
+            docker run --rm \
+              -e NVD_API_KEY=$NVD_API_KEY \
+              -v "$PWD:/src" \
+              -v "$PWD/dependency-check-report:/report" \
+              -v "$PWD/$OWASP_DATA_DIR:/usr/share/dependency-check/data" \
+              owasp/dependency-check:latest \
+              --project "EventHub" \
+              --scan /src \
+              --format "HTML" \
+              --format "JSON" \
+              --out /report \
+              --nvdApiKey $NVD_API_KEY \
+              --nvdApiDelay 6000 \
+              --failOnCVSS 7
+
+            rm -rf "$OWASP_DATA_DIR"
+          '''
+        }
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
+        }
+      }
     }
-  }
-  post {
-    always {
-      archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
-    }
-  }
-}
 
     stage('Trivy Filesystem Scan') {
       steps {
@@ -255,6 +261,7 @@ stage('OWASP Dependency Check') {
     always {
       sh '''
         ${COMPOSE} down -v --remove-orphans || true
+        rm -rf .dependency-check-data-* || true
       '''
     }
   }
