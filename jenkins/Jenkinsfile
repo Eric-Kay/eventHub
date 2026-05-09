@@ -94,44 +94,48 @@ EOF
       }
     }
 
-    stage('OWASP Dependency Check') {
-      when {
-        expression { params.RUN_OWASP == true }
-      }
-      options {
-        timeout(time: 45, unit: 'MINUTES')
-      }
-      steps {
-        withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
-          sh '''
-            set -eux
-            rm -rf dependency-check-report
-            mkdir -p dependency-check-report
-            mkdir -p .dependency-check-data
+stage('OWASP Dependency Check') {
+  when {
+    expression { params.RUN_OWASP == true }
+  }
+  options {
+    timeout(time: 60, unit: 'MINUTES')
+  }
+  steps {
+    withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
+      sh '''
+        set -eux
 
-            docker run --rm \
-              -e NVD_API_KEY=$NVD_API_KEY \
-              -v "$PWD:/src" \
-              -v "$PWD/dependency-check-report:/report" \
-              -v "$PWD/.dependency-check-data:/usr/share/dependency-check/data" \
-              owasp/dependency-check:latest \
-              --project "EventHub" \
-              --scan /src \
-              --format "HTML" \
-              --format "JSON" \
-              --out /report \
-              --nvdApiKey $NVD_API_KEY \
-              --nvdApiDelay 3500 \
-              --failOnCVSS 7
-          '''
-        }
-      }
-      post {
-        always {
-          archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
-        }
-      }
+        rm -rf dependency-check-report
+        mkdir -p dependency-check-report
+
+        # Clear broken/locked OWASP DB cache
+        rm -rf .dependency-check-data
+        mkdir -p .dependency-check-data
+
+        docker run --rm \
+          -e NVD_API_KEY=$NVD_API_KEY \
+          -v "$PWD:/src" \
+          -v "$PWD/dependency-check-report:/report" \
+          -v "$PWD/.dependency-check-data:/usr/share/dependency-check/data" \
+          owasp/dependency-check:latest \
+          --project "EventHub" \
+          --scan /src \
+          --format "HTML" \
+          --format "JSON" \
+          --out /report \
+          --nvdApiKey $NVD_API_KEY \
+          --nvdApiDelay 3500 \
+          --failOnCVSS 7
+      '''
     }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
+    }
+  }
+}
 
     stage('Trivy Filesystem Scan') {
       steps {
